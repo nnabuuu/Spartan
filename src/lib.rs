@@ -29,6 +29,10 @@ mod sumcheck;
 mod timer;
 mod transcript;
 mod unipoly;
+pub mod polycommit;
+
+#[cfg(feature = "greyhound")]
+pub mod greyhound;
 
 use core::cmp::max;
 use errors::{ProofVerifyError, R1CSError};

@@ -137,6 +137,14 @@ impl DensePolynomial {
     DensePolynomial::new(self.Z[0..self.len].to_vec())
   }
 
+  pub fn values(&self) -> &[Scalar] {
+    &self.Z
+  }
+
+  pub fn values_mut(&mut self) -> &mut [Scalar] {
+    &mut self.Z
+  }
+
   pub fn split(&self, idx: usize) -> (DensePolynomial, DensePolynomial) {
     assert!(idx < self.len());
     (
@@ -600,4 +608,54 @@ mod tests {
       .verify(&gens, &mut verifier_transcript, &r, &C_Zr, &poly_commitment)
       .is_ok());
   }
+}
+
+#[cfg(not(feature = "greyhound"))]
+impl crate::polycommit::PolynomialCommitment for DensePolynomial {
+    type Param = PolyCommitmentGens;
+    type Commitment = PolyCommitment;
+    type Randomness = PolyCommitmentBlinds;
+    type Proof = PolyEvalProof;
+    type EvalCommitment = CompressedGroup;
+
+    fn commit(
+        &self,
+        gens: &Self::Param,
+        rand: Option<&mut crate::random::RandomTape>,
+    ) -> (Self::Commitment, Self::Randomness) {
+        self.commit(gens, rand)
+    }
+
+    fn open(
+        &self,
+        blinds: &Self::Randomness,
+        r: &[crate::scalar::Scalar],
+        value: &crate::scalar::Scalar,
+        blind: Option<&crate::scalar::Scalar>,
+        gens: &Self::Param,
+        transcript: &mut merlin::Transcript,
+        rand: &mut crate::random::RandomTape,
+    ) -> (Self::Proof, Self::EvalCommitment) {
+        PolyEvalProof::prove(
+            self,
+            Some(blinds),
+            r,
+            value,
+            blind,
+            gens,
+            transcript,
+            rand,
+        )
+    }
+
+    fn verify(
+        proof: &Self::Proof,
+        gens: &Self::Param,
+        transcript: &mut merlin::Transcript,
+        r: &[crate::scalar::Scalar],
+        eval_commit: &Self::EvalCommitment,
+        comm: &Self::Commitment,
+    ) -> Result<(), crate::errors::ProofVerifyError> {
+        proof.verify(gens, transcript, r, eval_commit, comm)
+    }
 }

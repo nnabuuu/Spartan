@@ -300,6 +300,13 @@ RUSTFLAGS='-C target_cpu=native --cfg curve25519_dalek_backend="BACKEND"' cargo 
 
 - `std`: enables std features (enabled by default)
 - `profile`: enables fine-grained profiling information (see below for its use)
+- `greyhound`: enables a post-quantum polynomial commitment scheme based on Ring-LWE
+
+Enable Greyhound by building with:
+
+```bash
+cargo build --features greyhound
+```
 
 ### WASM Support
 
