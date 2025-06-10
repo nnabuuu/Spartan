@@ -1,8 +1,27 @@
 #![allow(clippy::too_many_arguments)]
 use super::commitments::{Commitments, MultiCommitGens};
-use super::dense_mlpoly::{
-  DensePolynomial, EqPolynomial, PolyCommitment, PolyCommitmentGens, PolyEvalProof,
+use super::dense_mlpoly::{DensePolynomial, EqPolynomial};
+use super::polycommit::PolynomialCommitment;
+
+#[cfg(feature = "greyhound")]
+use super::greyhound::{
+    GreyhoundBlinds as PolyCommitmentBlinds,
+    GreyhoundCommitment as PolyCommitment,
+    GreyhoundEvalCommitment as PolyEvalCommitment,
+    GreyhoundEvalProof as PolyEvalProof,
+    GreyhoundGens as PolyCommitmentGens,
 };
+
+#[cfg(not(feature = "greyhound"))]
+use super::dense_mlpoly::{
+    PolyCommitment as PolyCommitment,
+    PolyCommitmentBlinds as PolyCommitmentBlinds,
+    PolyCommitmentGens as PolyCommitmentGens,
+    PolyEvalProof as PolyEvalProof,
+};
+
+#[cfg(not(feature = "greyhound"))]
+type PolyEvalCommitment = CompressedGroup;
 use super::errors::ProofVerifyError;
 use super::group::{CompressedGroup, GroupElement, VartimeMultiscalarMul};
 use super::math::Math;
@@ -31,7 +50,7 @@ pub struct R1CSProof {
   pok_claims_phase2: (KnowledgeProof, ProductProof),
   proof_eq_sc_phase1: EqualityProof,
   sc_proof_phase2: ZKSumcheckInstanceProof,
-  comm_vars_at_ry: CompressedGroup,
+  comm_vars_at_ry: PolyEvalCommitment,
   proof_eval_vars_at_ry: PolyEvalProof,
   proof_eq_sc_phase2: EqualityProof,
 }
@@ -67,6 +86,9 @@ pub struct R1CSGens {
 impl R1CSGens {
   pub fn new(label: &'static [u8], _num_cons: usize, num_vars: usize) -> Self {
     let num_poly_vars = num_vars.log_2();
+    #[cfg(feature = "greyhound")]
+    let gens_pc = PolyCommitmentGens::new();
+    #[cfg(not(feature = "greyhound"))]
     let gens_pc = PolyCommitmentGens::new(num_poly_vars, label);
     let gens_sc = R1CSSumcheckGens::new(label, &gens_pc.gens.gens_1);
     R1CSGens { gens_sc, gens_pc }
@@ -298,9 +320,8 @@ impl R1CSProof {
     let timer_polyeval = Timer::new("polyeval");
     let eval_vars_at_ry = poly_vars.evaluate(&ry[1..]);
     let blind_eval = random_tape.random_scalar(b"blind_eval");
-    let (proof_eval_vars_at_ry, comm_vars_at_ry) = PolyEvalProof::prove(
-      &poly_vars,
-      Some(&blinds_vars),
+    let (proof_eval_vars_at_ry, comm_vars_at_ry) = poly_vars.open(
+      &blinds_vars,
       &ry[1..],
       &eval_vars_at_ry,
       Some(&blind_eval),
@@ -446,7 +467,8 @@ impl R1CSProof {
     )?;
 
     // verify Z(ry) proof against the initial commitment
-    self.proof_eval_vars_at_ry.verify(
+    <DensePolynomial as PolynomialCommitment>::verify(
+      &self.proof_eval_vars_at_ry,
       &gens.gens_pc,
       transcript,
       &ry[1..],

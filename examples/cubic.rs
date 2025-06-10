@@ -7,6 +7,9 @@
 //! `(Z2 + Z0) * 1 - Z3 = 0`
 //! `(Z3 + 5) * 1 - I0 = 0`
 //!
+//! Enable the `greyhound` feature to use the post-quantum commitment backend:
+//! `cargo run --example cubic --features greyhound`
+//!
 //! [here]: https://medium.com/@VitalikButerin/quadratic-arithmetic-programs-from-zero-to-hero-f6d558cea649
 #![allow(clippy::assertions_on_result_states)]
 use curve25519_dalek::scalar::Scalar;
